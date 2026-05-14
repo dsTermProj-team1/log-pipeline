@@ -1,0 +1,6 @@
+rootProject.name = 'log-pipeline'
+
+include 'common'
+include 'kafka-consumer'
+include 'mapreduce-job'
+// spark-streaming은 언어 결정 후 추가

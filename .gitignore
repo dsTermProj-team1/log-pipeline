@@ -1,0 +1,45 @@
+# Java / Gradle
+*.class
+*.jar
+*.war
+build/
+.gradle/
+out/
+target/
+hs_err_pid*.log
+
+# Python (spark-streaming용 예비)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.python-version
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / Env
+*.env
+.env.*
+!.env.example
+secrets/
+k8s/**/secret-*.yaml
+
+# Logs / Data
+logs/
+*.log
+data/
+tmp/
