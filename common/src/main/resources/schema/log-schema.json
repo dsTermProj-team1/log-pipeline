@@ -1,29 +1,50 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "MSA Log Event",
-  "description": "ott-msa 서비스가 Kafka로 발행하는 로그의 표준 스키마. log-pipeline의 모든 모듈은 이 스키마를 기준으로 파싱한다.",
+   "title": "MSA Log Event",
+  "description": "MSA 서비스(auth/content/streaming)에서 Kafka msa-logs 토픽으로 발행되는 로그 메시지 스키마.",
   "type": "object",
-  "required": ["timestamp", "service", "method", "uri", "status", "ip"],
+  "required": [
+    "timestamp",
+    "service",
+    "ip",
+    "method",
+    "uri",
+    "status",
+    "has_valid_token"
+  ],
   "properties": {
     "timestamp": {
       "type": "string",
       "format": "date-time",
-      "description": "ISO-8601 UTC"
+      "description": "ISO 8601 UTC 시간. 예: 2026-05-16T14:23:45.123Z"
     },
     "service": {
       "type": "string",
-      "enum": ["auth", "content", "streaming"]
+      "enum": ["auth", "content", "streaming"],
+      "description": "로그를 발행한 MSA 서비스"
+    },
+    "ip": {
+      "type": "string",
+      "description": "클라이언트 IP. DoS 탐지(Spark groupBy 키)와 대시보드에 사용"
     },
     "method": {
       "type": "string",
-      "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
+      "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+      "description": "HTTP 메서드"
     },
-    "uri": { "type": "string" },
-    "status": { "type": "integer", "minimum": 100, "maximum": 599 },
-    "ip": { "type": "string" },
-    "user_id": { "type": ["string", "null"] },
-    "has_valid_token": { "type": "boolean" },
-    "latency_ms": { "type": "integer", "minimum": 0 },
-    "user_agent": { "type": ["string", "null"] }
-  }
+    "uri": {
+      "type": "string",
+      "description": "요청 경로. 인증 우회 탐지(streaming 엔드포인트 식별)에 사용"
+    },
+    "status": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 599,
+      "description": "HTTP 응답 상태 코드"
+    },
+    "has_valid_token": {
+      "type": "boolean",
+      "description": "JWT 토큰 유효성. false + streaming = 인증 우회 시도"
+    }
+  },
+  "additionalProperties": false
 }
