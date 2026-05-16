@@ -1,0 +1,15 @@
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: msa-logs
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: msa-kafka
+spec:
+  partitions: 6
+  replicas: 1
+  config:
+    retention.ms: 604800000        # 7일
+    retention.bytes: 10737418240   # 토픽당 10GB 상한
+    segment.bytes: 1073741824
+    compression.type: producer
