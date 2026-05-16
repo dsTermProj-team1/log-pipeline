@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hdfs-datanode
+  namespace: hadoop
+spec:
+  serviceName: hdfs-datanode-headless
+  replicas: 1                       # ★ 2로 늘리려면 여기만 수정 + hdfs-site.xml의 dfs.replication도 2로
+  selector:
+    matchLabels:
+      app: hdfs-datanode
+  template:
+    metadata:
+      labels:
+        app: hdfs-datanode
+    spec:
+      containers:
+        - name: datanode
+          image: apache/hadoop:3.3.6
+          command: ["hdfs", "datanode"]
+          env:
+            - name: HADOOP_CONF_DIR
+              value: /etc/hadoop
+          ports:
+            - containerPort: 9866
+              name: data
+            - containerPort: 9864
+              name: http
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 250m
+            limits:
+              memory: 1Gi
+              cpu: 500m
+          volumeMounts:
+            - name: data
+              mountPath: /hadoop
+            - name: config
+              mountPath: /etc/hadoop/core-site.xml
+              subPath: core-site.xml
+            - name: config
+              mountPath: /etc/hadoop/hdfs-site.xml
+              subPath: hdfs-site.xml
+      volumes:
+        - name: config
+          configMap:
+            name: hadoop-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi

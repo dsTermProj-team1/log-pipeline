@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hdfs-init-dirs
+  namespace: hadoop
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: hdfs-init
+          image: apache/hadoop:3.3.6
+          env:
+            - name: HADOOP_CONF_DIR
+              value: /etc/hadoop
+          command:
+            - sh
+            - -c
+            - |
+              # NameNode가 완전히 뜰 때까지 대기
+              until hdfs dfs -ls / 2>/dev/null; do
+                echo "Waiting for NameNode..."
+                sleep 5
+              done
+              # 디렉토리 생성
+              hdfs dfs -mkdir -p /logs/msa-logs
+              hdfs dfs -mkdir -p /results
+              hdfs dfs -chmod -R 777 /logs /results
+              echo "HDFS directories created."
+              hdfs dfs -ls /
+          volumeMounts:
+            - name: config
+              mountPath: /etc/hadoop/core-site.xml
+              subPath: core-site.xml
+            - name: config
+              mountPath: /etc/hadoop/hdfs-site.xml
+              subPath: hdfs-site.xml
+      volumes:
+       - name: config
+         configMap:
+           name: hadoop-config
+
