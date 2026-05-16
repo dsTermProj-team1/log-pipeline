@@ -16,15 +16,35 @@ Elasticsearch로 적재합니다.
 
 ## 빠른 시작
 
+### 사전 조건
+- K3s 클러스터 (WSL2 권장)
+- kubectl 설치 및 K3s kubeconfig 연결
+- 레포 루트에 `.env` 파일 준비 (`.env.example` 복사 후 값 채우기)
+
+### 인프라 배포
 ```bash
-# 1. 로컬 인프라 기동 (Kafka, HDFS, ES, Kibana)
-./scripts/dev-up.sh
+./scripts/k8s-up.sh
+```
 
-# 2. Java 모듈 빌드
+### 토픽 동작 확인 (샘플 메시지 발행)
+```bash
+./scripts/seed-topic.sh             # 정상 트래픽
+./scripts/seed-topic.sh auth-bypass # 인증 우회 시도
+```
+
+### 상태 확인
+```bash
+./scripts/k8s-status.sh
+```
+
+### Java 모듈 빌드
+```bash
 ./gradlew build
+```
 
-# 3. 종료
-./scripts/dev-down.sh
+### 인프라 정리
+```bash
+./scripts/k8s-down.sh
 ```
 
 ## 관련 레포
