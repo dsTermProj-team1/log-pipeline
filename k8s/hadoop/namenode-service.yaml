@@ -1,0 +1,32 @@
+# 헤드리스 Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs-namenode-headless
+  namespace: hadoop
+spec:
+  clusterIP: None
+  selector:
+    app: hdfs-namenode
+  ports:
+    - name: rpc
+      port: 8020
+    - name: http
+      port: 9870
+---
+# 클라이언트 접속용 Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs-namenode
+  namespace: hadoop
+spec:
+  selector:
+    app: hdfs-namenode
+  ports:
+    - name: rpc
+      port: 8020
+      targetPort: 8020
+    - name: http
+      port: 9870
+      targetPort: 9870

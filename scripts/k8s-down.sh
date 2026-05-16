@@ -10,7 +10,7 @@ if [ "$confirm" != "yes" ]; then
 fi
 
 kubectl delete namespace kafka --ignore-not-found
-# kubectl delete namespace hadoop --ignore-not-found
+kubectl delete namespace hadoop --ignore-not-found
 # kubectl delete namespace elasticsearch --ignore-not-found
 # kubectl delete namespace keda --ignore-not-found
 

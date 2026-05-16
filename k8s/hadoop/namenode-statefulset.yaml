@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hdfs-namenode
+  namespace: hadoop
+spec:
+  serviceName: hdfs-namenode-headless
+  replicas: 1                       # NameNode는 1 고정 (HA 안 함)
+  selector:
+    matchLabels:
+      app: hdfs-namenode
+  template:
+    metadata:
+      labels:
+        app: hdfs-namenode
+    spec:
+      initContainers:
+        # 첫 기동 시 NameNode 디렉토리 포맷
+        - name: format-namenode
+          image: apache/hadoop:3.3.6
+          command:
+            - sh
+            - -c
+            - |
+              if [ ! -d /hadoop/dfs/name/current ]; then
+                echo "[init] Formatting NameNode..."
+                hdfs namenode -format -nonInteractive -force
+              else
+                echo "[init] NameNode already formatted, skipping."
+              fi
+          env:
+            - name: HADOOP_CONF_DIR
+              value: /etc/hadoop
+          volumeMounts:
+            - name: data
+              mountPath: /hadoop
+            - name: config
+              mountPath: /etc/hadoop/core-site.xml
+              subPath: core-site.xml
+            - name: config
+              mountPath: /etc/hadoop/hdfs-site.xml
+              subPath: hdfs-site.xml
+      containers:
+        - name: namenode
+          image: apache/hadoop:3.3.6
+          command: ["hdfs", "namenode"]
+          env:
+            - name: HADOOP_CONF_DIR
+              value: /etc/hadoop
+          ports:
+            - containerPort: 8020
+              name: rpc
+            - containerPort: 9870
+              name: http
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 500m
+            limits:
+              memory: 2Gi
+              cpu: 1
+          volumeMounts:
+            - name: data
+              mountPath: /hadoop
+            - name: config
+              mountPath: /etc/hadoop/core-site.xml
+              subPath: core-site.xml
+            - name: config
+              mountPath: /etc/hadoop/hdfs-site.xml
+              subPath: hdfs-site.xml
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9870
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: hadoop-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi

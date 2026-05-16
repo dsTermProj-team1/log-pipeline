@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hadoop-config
+  namespace: hadoop
+data:
+  core-site.xml: |
+    <?xml version="1.0"?>
+    <configuration>
+      <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://hdfs-namenode.hadoop.svc.cluster.local:8020</value>
+      </property>
+      <property>
+        <name>hadoop.tmp.dir</name>
+        <value>/hadoop/tmp</value>
+      </property>
+    </configuration>
+
+  hdfs-site.xml: |
+    <?xml version="1.0"?>
+    <configuration>
+      <property>
+        <name>dfs.replication</name>
+        <value>1</value>
+        <!-- DataNode 2개로 늘리면 2로 바꾸면 됨 -->
+      </property>
+      <property>
+        <name>dfs.namenode.name.dir</name>
+        <value>/hadoop/dfs/name</value>
+      </property>
+      <property>
+        <name>dfs.datanode.data.dir</name>
+        <value>/hadoop/dfs/data</value>
+      </property>
+      <property>
+        <name>dfs.namenode.rpc-bind-host</name>
+        <value>0.0.0.0</value>
+      </property>
+      <property>
+        <name>dfs.namenode.http-bind-host</name>
+        <value>0.0.0.0</value>
+      </property>
+      <property>
+        <name>dfs.namenode.datanode.registration.ip-hostname-check</name>
+        <value>false</value>
+        <!-- K3s Pod IP/hostname 검사 비활성화 -->
+      </property>
+      <property>
+        <name>dfs.blocksize</name>
+        <value>134217728</value>
+        <!-- 128MB 블록  -->
+      </property>
+    </configuration>
