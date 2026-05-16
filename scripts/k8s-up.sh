@@ -23,8 +23,16 @@ kubectl wait kafka/msa-kafka --for=condition=Ready --timeout=600s -n kafka
 kubectl apply -f k8s/kafka/msa-logs-topic.yaml
 
 # 인프라 추가될 때 아래 블록 활성화
-# echo "==> [2/N] Hadoop"
-# kubectl apply -f k8s/hadoop/
+echo "==> [2/N] Hadoop"
+kubectl apply -f k8s/hadoop/namespace.yaml
+kubectl apply -f k8s/hadoop/configmap.yaml
+kubectl apply -f k8s/hadoop/namenode-service.yaml
+kubectl apply -f k8s/hadoop/namenode-statefulset.yaml
+kubectl wait --for=condition=Ready pod/hdfs-namenode-0 -n hadoop --timeout=300s
+kubectl apply -f k8s/hadoop/datanode-service.yaml
+kubectl apply -f k8s/hadoop/datanode-statefulset.yaml
+kubectl wait --for=condition=Ready pod/hdfs-datanode-0 -n hadoop --timeout=300s
+kubectl apply -f k8s/hadoop/init-job.yaml
 
 # echo "==> [3/N] Elasticsearch"
 # kubectl apply -f k8s/elasticsearch/
