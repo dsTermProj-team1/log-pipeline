@@ -19,6 +19,14 @@ if [ "$confirm" != "yes" ]; then
   exit 1
 fi
 
+# ── 추가: Strimzi KafkaTopic finalizer 선제 제거 ──
+# Topic Operator가 namespace와 함께 죽으면 finalizer를 못 풀어 교착되므로,
+# 삭제 전에 미리 finalizer를 비운
+echo "==> Strimzi KafkaTopic finalizer 정리..."
+for t in $(kubectl get kafkatopic -n kafka -o name 2>/dev/null); do
+  kubectl patch "$t" -n kafka -p '{"metadata":{"finalizers":null}}' --type=merge 2>/dev/null || true
+done
+
 pids=()
 for ns in "${NAMESPACES[@]}"; do
   kubectl delete namespace "$ns" --ignore-not-found &

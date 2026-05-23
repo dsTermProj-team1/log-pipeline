@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hdfs-sink-consumer
+  namespace: kafka
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hdfs-sink-consumer
+  template:
+    metadata:
+      labels:
+        app: hdfs-sink-consumer
+    spec:
+      containers:
+        - name: hdfs-sink-consumer
+          image: hdfs-sink-consumer:0.1.1
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: hdfs-sink-consumer-config
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 250m
+            limits:
+              memory: 1Gi
+              cpu: 500m
