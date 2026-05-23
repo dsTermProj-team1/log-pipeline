@@ -5,5 +5,10 @@
   "method": "GET",
   "uri": "/api/streaming/play/movie_15",
   "status": 200,
-  "has_valid_token": true
+  "has_valid_token": true,
+  "user_id": "user_0142",
+  "content_id": "movie_15",
+  "genre": "action",
+  "watch_ratio": 0.73,
+  "response_time_ms": 45
 }

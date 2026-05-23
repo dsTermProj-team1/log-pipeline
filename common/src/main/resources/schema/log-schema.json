@@ -1,5 +1,5 @@
 {
-   "title": "MSA Log Event",
+  "title": "MSA Log Event",
   "description": "MSA 서비스(auth/content/streaming)에서 Kafka msa-logs 토픽으로 발행되는 로그 메시지 스키마.",
   "type": "object",
   "required": [
@@ -44,6 +44,29 @@
     "has_valid_token": {
       "type": "boolean",
       "description": "JWT 토큰 유효성. false + streaming = 인증 우회 시도"
+    },
+    "user_id": {
+      "type": ["string", "null"],
+      "description": "[리얼리티용] 인증된 사용자 ID. 비로그인/인증실패 시 null. 탐지 미사용."
+    },
+    "content_id": {
+      "type": ["string", "null"],
+      "description": "[리얼리티용] 콘텐츠 ID (TMDB 기반). content/streaming 서비스에서만. 탐지 미사용."
+    },
+    "genre": {
+      "type": ["string", "null"],
+      "description": "[리얼리티용] 콘텐츠 장르 (action/drama/animation/comedy). 탐지 미사용."
+    },
+    "watch_ratio": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1,
+      "description": "[리얼리티용] 시청 비율 (0.0~1.0). streaming 재생 시에만. 탐지 미사용."
+    },
+    "response_time_ms": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "[리얼리티용] 응답 처리 시간(ms). 탐지 미사용."
     }
   },
   "additionalProperties": false

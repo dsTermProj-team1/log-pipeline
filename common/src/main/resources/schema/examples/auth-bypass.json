@@ -5,5 +5,8 @@
   "method": "GET",
   "uri": "/api/streaming/play/movie_15",
   "status": 401,
-  "has_valid_token": false
+  "has_valid_token": false,
+  "user_id": null,
+  "content_id": "movie_15",
+  "response_time_ms": 8
 }
