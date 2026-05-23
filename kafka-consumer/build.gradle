@@ -1,15 +1,29 @@
 plugins {
-    id 'application'
+    id 'org.springframework.boot' version '2.7.18'
+    id 'io.spring.dependency-management' version '1.1.4'
 }
 
 dependencies {
-    implementation project(':common')
-    implementation 'org.apache.kafka:kafka-clients:3.7.0'
+     implementation project(':common')
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.kafka:spring-kafka'
     implementation('org.apache.hadoop:hadoop-client:3.3.6') {
+        // Hadoop이 가져오는 로깅을 Spring Boot 것으로 통일
+        exclude group: 'org.slf4j', module: 'slf4j-log4j12'
         exclude group: 'org.slf4j', module: 'slf4j-reload4j'
+        exclude group: 'log4j', module: 'log4j'
+        exclude group: 'ch.qos.reload4j', module: 'reload4j'
+        exclude group: 'commons-logging', module: 'commons-logging'
     }
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
 }
 
-application {
-    mainClass = 'com.logpipeline.kafka.HdfsSinkConsumer'
+tasks.named('test') {
+    useJUnitPlatform()
 }

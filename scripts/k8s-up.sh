@@ -10,7 +10,8 @@ kubectl apply -f k8s/kafka/namespace.yaml
 
 if ! kubectl get deployment strimzi-cluster-operator -n kafka >/dev/null 2>&1; then
   echo "  Strimzi Operator 설치 중..."
-  kubectl create -f 'https://strimzi.io/install/latest?namespace=kafka' -n kafka
+   # create 대신 apply 사용 (이미 있는 리소스는 갱신, 없으면 생성 → AlreadyExists 안 남)
+  kubectl apply -f 'https://strimzi.io/install/latest?namespace=kafka' -n kafka
   kubectl wait --for=condition=Ready pod \
     -l name=strimzi-cluster-operator \
     -n kafka --timeout=300s

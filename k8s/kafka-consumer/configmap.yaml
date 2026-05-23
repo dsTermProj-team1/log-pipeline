@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hdfs-sink-consumer-config
+  namespace: kafka
+data:
+  KAFKA_BOOTSTRAP_SERVERS: "msa-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092"
+  KAFKA_GROUP_ID: "batch-layer-group"
+  KAFKA_TOPIC: "msa-logs"
+  HDFS_URI: "hdfs://hdfs-namenode.hadoop.svc.cluster.local:8020"
+  HDFS_BASE_PATH: "/logs/msa-logs"
+  ROLLING_MAX_BYTES: "125829120"
+  ROLLING_MAX_MESSAGES: "10000"
+  ROLLING_CHECK_INTERVAL_MS: "60000"

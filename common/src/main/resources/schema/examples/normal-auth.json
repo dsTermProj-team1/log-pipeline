@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-05-16T14:20:01.000Z",
+  "service": "auth",
+  "ip": "10.0.4.231",
+  "method": "POST",
+  "uri": "/api/auth/login",
+  "status": 200,
+  "has_valid_token": true,
+  "user_id": "user_0142",
+  "response_time_ms": 88
+}
