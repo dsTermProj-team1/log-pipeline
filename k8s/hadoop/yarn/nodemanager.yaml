@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: yarn-nodemanager
+  namespace: hadoop
+  labels: { app: yarn, component: nodemanager }
+spec:
+  selector:
+    matchLabels: {app: yarn, component: nodemanager }
+  template:
+    metadata:
+      labels: { app: yarn: component: nodemanager }
+    spec:
+      tolerations:
+        - { key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule }
+        - { key: node-role.kubernetes.io/master,        operator: Exists, effect: NoSchedule }
+      containers:
+        - name: nodemanager
+          image: apache/hadoop:3.3.6
+          imagePullPolicy: IfNotPresent
+          command: ["yarn"]
+          args: ["nodemanager"]
+          env:
+            - name: HADOOP_CONF_DIR
+              value: /etc/hadoop/conf
+            - name: POD_IP
+              valueFrom: { fieldRef: { fieldPath: status.podIP } }
+            - name: YARN_NODEMANAGER_OPTS
+              value: "-Dyarn.nodemanager.hostname=$(POD_IP)"
+          ports:
+            - { name: webui,     containerPort: 8042 }
+            - { name: localizer, containerPort: 8040 }
+          volumeMounts:
+            - { name: hadoop-conf, mountPath: /etc/hadoop/conf }
+          readinessProbe:
+            httpGet: { path: /node, port: 8042 }
+            initialDelaySeconds: 25
+            periodSeconds: 10
+          resources:
+            requests: { memory: "1Gi", cpu: "250m" }
+            limits:   { memory: "5Gi" }
+      volumes:
+        - name: hadoop-conf
+          configMap: { name: hadoop-conf }

@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yarn-resourcemanager
+  namespace: hadoop
+  labels: {app: yarn, component: resourcemanager}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: yarn, component: resourcemanager}
+  template:
+    metadata:
+      labels: {app: yarn, component: resourcemanager}
+    spec:
+      containers:
+        - name: resourcemanager
+          image: apache/hadoop:3.3.6
+          imagePullPolicy: IfNotPresent
+          command: ["yarn"]
+          args: ["resourcemanager"]
+          env:
+            - name: HADOOP_CONF_DIR
+              value: /etc/hadoop/conf
+          ports:
+            - { name: ipc,        containerPort: 8032 }
+            - { name: scheduler,  containerPort: 8030 }
+            - { name: tracker,    containerPort: 8031 }
+            - { name: admin,      containerPort: 8033 }
+            - { name: webui,      containerPort: 8088 }
+          volumeMounts:
+            - { name: hadoop-conf, mountPath: /etc/hadoop/conf}
+          readinessProbe:
+            httpGet: { path: /cluster, port:8088 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests: { memory: "768Mi", cpu: "250m" }
+            limits:   { memory: "1546Mi" }
+      volumes:
+        - name: hadoop-conf
+          configMap: { name: hadoop-conf }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yarn-resourcemanager
+  namespace: hadoop
+spec:
+  selector: { app: yarn, component: resourcemanager }
+  ports:
+    - { name: ipc,       port: 8032, targetPort: 8032 }
+    - { name: scheduler, port: 8030, targetPort: 8030 }
+    - { name: tracker,   port: 8031, targetPort: 8031 }
+    - { name: admin,     port: 8033, targetPort: 8033 }
+    - { name: webui,     port: 8088, targetPort: 8088 }
