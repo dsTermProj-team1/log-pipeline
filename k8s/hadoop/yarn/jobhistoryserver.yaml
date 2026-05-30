@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yarn-jobhistory
+  namespace: hadoop
+  labels: { app: yarn, component: jobhistory }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: yarn, component: jobhistory }
+  template:
+    metadata:
+      labels: { app: yarn, component: jobhistory }
+    spec:
+      containers:
+        - name: jobhistory
+          image: apache/hadoop:3.3.6
+          imagePullPolicy: IfNotPresent
+          command: ["mapred"]
+          args: ["historyserver"]
+          env:
+            - name: HADOOP_CONF_DIR
+              value: /etc/hadoop/conf
+          ports:
+            - { name: ipc,   containerPort: 10020 }
+            - { name: webui, containerPort: 19888 }
+          volumeMounts:
+            - { name: hadoop-conf, mountPath: /etc/hadoop/conf }
+          resources:
+            requests: { memory: "512Mi", cpu: "100m" }
+            limits:   { memory: "1Gi" }
+      volumes:
+        - name: hadoop-conf
+          configMap: { name: hadoop-conf }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yarn-jobhistory
+  namespace: hadoop
+spec:
+  selector: { app: yarn, component: jobhistory }
+  ports:
+    - { name: ipc,   port: 10020, targetPort: 10020 }
+    - { name: webui, port: 19888, targetPort: 19888 }
