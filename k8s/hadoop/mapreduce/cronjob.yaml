@@ -24,6 +24,12 @@ spec:
               env:
                 - name: HADOOP_CONF_DIR
                   value: /etc/hadoop/conf
+                - name: REDUCES
+                  value: "1"
+                - name: INPUT_BASE
+                  value: "/logs/msa-logs"
+                - name: OUTPUT_BASE
+                  value: "/results/hourly"
               command: ["/bin/bash", "-c"]
               args:
                 - |
@@ -35,11 +41,10 @@ spec:
                   D=$(date -u -d '1 hour ago' +%d)
                   H=$(date -u -d '1 hour ago' +%H)
 
-                  IN="/logs/msa-logs/year=${Y}/month=${M}/day=${D}/hour=${H}"
-                  OUT="/results/hourly/${Y}-${M}-${D}-${H}"
+                  IN="${INPUT_BASE}/year=${Y}/month=${M}/day=${D}/hour=${H}"
+                  OUT="${OUTPUT_BASE}/${Y}-${M}-${D}-${H}"
 
-                  echo "[submit] input=${IN}"
-                  echo "[submit] output=${OUT}"
+                  echo "[submit] reduces=${REDUCES} input=${IN} output=${OUT}"
 
                   # 입력 파티션이 없으면(그 시간에 로그 0건) 정상 종료
                   if ! hdfs dfs -test -d "${IN}"; then
@@ -52,7 +57,7 @@ spec:
 
                   hadoop jar /opt/job/mapreduce-job.jar \
                     com.logpipeline.mapreduce.LogAggregationDriver \
-                    -D mapreduce.job.reduces=3 \
+                    -D mapreduce.job.reduces="${REDUCES}" \
                     "${IN}" "${OUT}"
 
                   echo "[done] aggregation written to ${OUT}"
