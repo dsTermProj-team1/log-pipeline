@@ -1,0 +1,65 @@
+# 1시간 주기 배치 — 직전 시간 파티션을 집계해 /results 에 JSONL 출력.
+# hadoop-conf(YARN/HDFS 설정) 마운트로 RM·HDFS 주소를 그대로 물려받음.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mapreduce-hourly-agg
+  namespace: hadoop
+spec:
+  schedule: "5 * * * *"            # 매시 5분 (직전 시간 데이터가 다 쌓일 여유)
+  concurrencyPolicy: Forbid        # 이전 잡이 안 끝났으면 이번 회차 건너뜀(중복 제출 방지)
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 300
+  jobTemplate:
+    spec:
+      backoffLimit: 1              # 실패 시 1회만 재시도(무한 재시도 방지)
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: submitter
+              image: kevinpsj/mapreduce-job:0.1.0
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: HADOOP_CONF_DIR
+                  value: /etc/hadoop/conf
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+
+                  # 직전 시간(UTC) 계산 → 입력 파티션 경로
+                  Y=$(date -u -d '1 hour ago' +%Y)
+                  M=$(date -u -d '1 hour ago' +%m)
+                  D=$(date -u -d '1 hour ago' +%d)
+                  H=$(date -u -d '1 hour ago' +%H)
+
+                  IN="/logs/msa-logs/year=${Y}/month=${M}/day=${D}/hour=${H}"
+                  OUT="/results/hourly/${Y}-${M}-${D}-${H}"
+
+                  echo "[submit] input=${IN}"
+                  echo "[submit] output=${OUT}"
+
+                  # 입력 파티션이 없으면(그 시간에 로그 0건) 정상 종료
+                  if ! hdfs dfs -test -d "${IN}"; then
+                    echo "[skip] input partition not found, nothing to aggregate"
+                    exit 0
+                  fi
+
+                  # 재실행 대비: 출력 경로가 이미 있으면 제거(MR 은 기존 출력 있으면 실패)
+                  hdfs dfs -rm -r -f "${OUT}" || true
+
+                  hadoop jar /opt/job/mapreduce-job.jar \
+                    com.logpipeline.mapreduce.LogAggregationDriver \
+                    -D mapreduce.job.reduces=3 \
+                    "${IN}" "${OUT}"
+
+                  echo "[done] aggregation written to ${OUT}"
+              volumeMounts:
+                - name: hadoop-conf
+                  mountPath: /etc/hadoop/conf
+          volumes:
+            - name: hadoop-conf
+              configMap:
+                name: hadoop-conf   # YARN 단계에서 만든 ConfigMap 재사용

@@ -9,7 +9,7 @@ data:
     <configuration>
       <property>
         <name>fs.defaultFS</name>
-        <value>hdfs://hdfs-namenode-0.hdfs-namenode.hadoop.svc.cluster.local:9000</value>
+        <value>hdfs://hdfs-namenode.hadoop.svc.cluster.local:8020</value>
       </property>
     </configuration>
 
@@ -18,7 +18,8 @@ data:
     <configuration>
       <property><name>yarn.resourcemanager.hostname</name><value>yarn-resourcemanager</value></property>
       <property><name>yarn.resourcemanager.bind-host</name><value>0.0.0.0</value></property>
-      <property><name>yarn.nodemanager.bind-host</name><value>0.0.0.0</value></property>
+      <!-- NM bind-host는 의도적으로 비움: 켜두면 -Dyarn.nodemanager.address 의 host(POD_IP)를
+           덮어써 0.0.0.0 으로 bind→advertise되며 결국 pod hostname이 등록돼 RM이 NM을 찾지 못함. -->
       <property><name>yarn.nodemanager.aux-services</name><value>mapreduce_shuffle</value></property>
       <property><name>yarn.nodemanager.resource.memory-mb</name><value>4096</value></property>
       <property><name>yarn.nodemanager.resource.cpu-vcores</name><value>4</value></property>
@@ -32,7 +33,7 @@ data:
       <property><name>yarn.nodemanager.remote-app-log-dir</name><value>/tmp/logs</value></property>
       <property>
         <name>yarn.application.classpath</name>
-        <value>$HADOOP_CONF_DIR,$HADOOP_COMMON_HOME/share/hadoop/common/*,$HADOOP_COMMON_HOME/share/hadoop/common/lib/*,$HADOOP_HDFS_HOME/share/hadoop/hdfs/*,$HADOOP_HDFS_HOME/share/hadoop/hdfs/lib/*,$HADOOP_YARN_HOME/share/hadoop/yarn/*,$HADOOP_YARN_HOME/share/hadoop/yarn/lib/*</value>
+        <value>$HADOOP_CONF_DIR,$HADOOP_COMMON_HOME/share/hadoop/common/*,$HADOOP_COMMON_HOME/share/hadoop/common/lib/*,$HADOOP_HDFS_HOME/share/hadoop/hdfs/*,$HADOOP_HDFS_HOME/share/hadoop/hdfs/lib/*,$HADOOP_YARN_HOME/share/hadoop/yarn/*,$HADOOP_YARN_HOME/share/hadoop/yarn/lib/*,$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/*,$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/lib/*</value>
       </property>
     </configuration>
 
@@ -40,6 +41,12 @@ data:
     <?xml version="1.0"?>
     <configuration>
       <property><name>mapreduce.framework.name</name><value>yarn</value></property>
+      <!-- AM/map/reduce 컨테이너에 HADOOP_MAPRED_HOME 을 명시 주입하지 않으면
+           MRAppMaster classpath 가 비어 "Could not find org.apache.hadoop.mapreduce.v2.app.MRAppMaster" 로 죽는다.
+           apache/hadoop:3.3.6 이미지 기준 HADOOP_HOME = /opt/hadoop. -->
+      <property><name>yarn.app.mapreduce.am.env</name><value>HADOOP_MAPRED_HOME=/opt/hadoop</value></property>
+      <property><name>mapreduce.map.env</name><value>HADOOP_MAPRED_HOME=/opt/hadoop</value></property>
+      <property><name>mapreduce.reduce.env</name><value>HADOOP_MAPRED_HOME=/opt/hadoop</value></property>
       <property><name>yarn.app.mapreduce.am.resource.mb</name><value>1024</value></property>
       <property><name>yarn.app.mapreduce.am.command-opts</name><value>-Xmx768m</value></property>
       <property><name>mapreduce.map.memory.mb</name><value>1024</value></property>
@@ -52,4 +59,23 @@ data:
       </property>
       <property><name>mapreduce.jobhistory.address</name><value>yarn-jobhistory:10020</value></property>
       <property><name>mapreduce.jobhistory.webapp.address</name><value>yarn-jobhistory:19888</value></property>
+      <property><name>mapreduce.jobhistory.bind-host</name><value>0.0.0.0</value></property>
+      <property><name>mapreduce.jobhistory.webapp.bind-host</name><value>0.0.0.0</value></property>
+    </configuration>
+
+  capacity-scheduler.xml: |
+    <?xml version="1.0"?>
+    <configuration>
+      <property>
+        <name>yarn.scheduler.capacity.root.queues</name>
+        <value>default</value>
+      </property>
+      <property>
+        <name>yarn.scheduler.capacity.root.default.capacity</name>
+        <value>100</value>
+      </property>
+      <property>
+        <name>yarn.scheduler.capacity.maximum-am-resource-percent</name>
+        <value>0.5</value>
+      </property>
     </configuration>

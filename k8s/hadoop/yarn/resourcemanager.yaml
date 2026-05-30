@@ -31,7 +31,7 @@ spec:
           volumeMounts:
             - { name: hadoop-conf, mountPath: /etc/hadoop/conf}
           readinessProbe:
-            httpGet: { path: /cluster, port:8088 }
+            httpGet: { path: /cluster, port: 8088 }
             initialDelaySeconds: 20
             periodSeconds: 10
           resources:
