@@ -4,5 +4,11 @@ FROM apache/hadoop:3.3.6
 # 빌드 컨텍스트가 mapreduce-job/ 이라 build/libs 경로가 상대경로로 잡힘
 COPY build/libs/mapreduce-job-0.1.0-SNAPSHOT.jar /opt/job/mapreduce-job.jar
 
-# 잡 제출 후 완료까지 대기하는 게 목적 → 상시 데몬 아님.
-# 실제 제출 커맨드는 CronJob 에서 주입(이미지엔 jar 만 둠).
+# ── updater용: jq + kubectl 추가 ──
+USER root
+RUN curl -fsSLo /usr/local/bin/jq \
+      "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64" \
+    && curl -fsSLo /usr/local/bin/kubectl \
+      "https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl" \
+    && chmod +x /usr/local/bin/jq /usr/local/bin/kubectl
+USER hadoop
