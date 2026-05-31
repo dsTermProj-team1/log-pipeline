@@ -1,0 +1,67 @@
+# updater 본체 스크립트. 이미지에 굽지 않고 ConfigMap으로 주입 →
+# 로직 수정 시 재빌드 없이 kubectl apply 한 번으로 갱신.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keda-updater-script
+  namespace: kafka
+data:
+  update.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    SO_NS="${SO_NS:-kafka}"
+    SO_NAME="${SO_NAME:-spark-speed-consumer-scaler}"
+    BASELINE_PATH="${BASELINE_PATH:-/results/baseline/latest/part-r-00000}"
+
+    echo "[updater] reading baseline from HDFS: ${BASELINE_PATH}"
+    # HDFS에서 baseline 결과(JSONL) 읽기. 한 줄당 {"window":..,"replicas":..}
+    BASELINE_JSON=$(hdfs dfs -cat "${BASELINE_PATH}")
+    if [[ -z "${BASELINE_JSON}" ]]; then
+      echo "[updater] baseline empty — abort"; exit 1
+    fi
+    echo "${BASELINE_JSON}"
+
+    # 현재 ScaledObject의 triggers 배열 조회
+    TRIGGERS=$(kubectl get scaledobject "${SO_NAME}" -n "${SO_NS}" \
+      -o jsonpath='{.spec.triggers}')
+
+    # JSON Patch 배열 조립
+    PATCHES="[]"
+    while IFS= read -r line; do
+      [[ -z "${line}" ]] && continue
+      WIN=$(echo "${line}"  | jq -r '.window')
+      REP=$(echo "${line}"  | jq -r '.replicas')
+      SH=$((10#${WIN%%-*}))   # "06-12" -> 6 (10진수 강제: 08,09 8진수 오류 방지)
+
+      # cron 트리거 중 start 시(hour)가 SH인 것의 인덱스 탐색
+      IDX=$(echo "${TRIGGERS}" | jq -r --argjson sh "${SH}" '
+        to_entries
+        | map(select(.value.type=="cron"
+                     and (.value.metadata.start | split(" ")[1] | tonumber) == $sh))
+        | .[0].key // empty')
+
+      if [[ -z "${IDX}" ]]; then
+        echo "[skip] window ${WIN}: no matching cron trigger"; continue
+      fi
+
+      CUR=$(echo "${TRIGGERS}" | jq -r ".[${IDX}].metadata.desiredReplicas")
+      if [[ "${CUR}" == "${REP}" ]]; then
+        echo "[skip] ${WIN} idx=${IDX} already ${REP}"; continue
+      fi
+
+      echo "[patch] ${WIN} idx=${IDX} ${CUR} -> ${REP}"
+      PATCHES=$(echo "${PATCHES}" | jq \
+        --arg p "/spec/triggers/${IDX}/metadata/desiredReplicas" \
+        --arg v "${REP}" \
+        '. + [{"op":"replace","path":$p,"value":$v}]')
+    done <<< "${BASELINE_JSON}"
+
+    if [[ "$(echo "${PATCHES}" | jq 'length')" == "0" ]]; then
+      echo "[updater] no changes needed"; exit 0
+    fi
+
+    echo "[updater] applying patch: ${PATCHES}"
+    kubectl patch scaledobject "${SO_NAME}" -n "${SO_NS}" \
+      --type=json -p "${PATCHES}"
+    echo "[updater] done"

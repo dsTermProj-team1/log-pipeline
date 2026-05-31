@@ -1,0 +1,31 @@
+# updater 전용 ServiceAccount + 최소권한 Role.
+# kafka ns의 scaledobjects를 get/patch만 — 그 외 권한 없음.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keda-updater
+  namespace: kafka
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: keda-updater-role
+  namespace: kafka
+rules:
+  - apiGroups: ["keda.sh"]
+    resources: ["scaledobjects"]
+    verbs: ["get", "patch"]          # 읽기 + 부분수정만. create/delete 없음
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: keda-updater-binding
+  namespace: kafka
+subjects:
+  - kind: ServiceAccount
+    name: keda-updater
+    namespace: kafka
+roleRef:
+  kind: Role
+  name: keda-updater-role
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,47 @@
+# baseline 직후(저부하 시간) baseline 결과를 읽어 ScaledObject Cron 기준값을 patch.
+# baseline 잡과 같은 이미지(hadoop 클라이언트 포함)에 kubectl을 더해 HDFS+K8s 둘 다 접근.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: keda-updater
+  namespace: kafka
+spec:
+  schedule: "20 19 * * *"            # 04:20 KST (= 19:20 UTC). baseline(04:00)보다 20분 뒤
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 300
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: keda-updater     # scaledobject patch 권한
+          containers:
+            - name: updater
+              image: kevinpsj/mapreduce-job:0.2.6   # hadoop 클라이언트 보유
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: HADOOP_CONF_DIR
+                  value: /etc/hadoop/conf
+                - name: SO_NS
+                  value: "kafka"
+                - name: SO_NAME
+                  value: "spark-speed-consumer-scaler"
+                - name: BASELINE_PATH
+                  value: "/results/baseline/latest/part-r-00000"
+              command: ["/bin/bash", "/scripts/update.sh"]
+              volumeMounts:
+                - name: hadoop-conf
+                  mountPath: /etc/hadoop/conf
+                - name: updater-script
+                  mountPath: /scripts
+          volumes:
+            - name: hadoop-conf
+              configMap:
+                name: hadoop-conf
+            - name: updater-script
+              configMap:
+                name: keda-updater-script
+                defaultMode: 0755
