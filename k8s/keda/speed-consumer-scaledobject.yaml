@@ -1,0 +1,60 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: spark-speed-consumer-scaler
+  namespace: kafka
+spec:
+  scaleTargetRef:
+    name: spark-speed-consumer # spark consumer deployment 이름 나오면 수정 필요
+  pollingInterval: 15
+  minReplicaCount: 1
+  maxReplicaCount: 6
+  advanced:
+    horizontalPodAutoscalerConfig:
+     behavior:
+       scaleUp:
+         stabilizationWindowSeconds: 0
+         policies:
+           - type: Pods
+             value: 4
+             periodSeconds: 15
+       scaleDown:
+         stabilizationWindowSeconds: 120
+         policies:
+           - type: Pods
+             value: 1
+             periodSeconds: 60
+  triggers:
+    # Kafka Lag trigger
+    - type: kafka
+      metadata:
+        bootstrapServers: msa-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+        consumerGroup: speed-layer-group # speed layer consumerGroup 정해지면 수정 필요
+        topic: msa-logs
+        lagThreshold: "50"
+        offsetResetPolicy: latest
+    # Cron Trigger (KST)
+    - type: cron
+      metadata:
+        timezone: Asia/Seoul
+        start: "0 0 * * *"
+        end: "0 6 * * *"
+        desiredReplicas: "1"
+    - type: cron
+      metadata:
+        timezone: Asia/Seoul
+        start: "0 6 * * *"
+        end:   "0 12 * * *"
+        desiredReplicas: "2"
+    - type: cron
+      metadata:
+        timezone: Asia/Seoul
+        start: "0 12 * * *"
+        end:   "0 18 * * *"
+        desiredReplicas: "4"
+    - type: cron
+      metadata:
+        timezone: Asia/Seoul
+        start: "0 18 * * *"
+        end:   "0 0 * * *"               # ◀ 24시는 cron 무효값. 자정=0시로
+        desiredReplicas: "2"
