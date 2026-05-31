@@ -7,8 +7,8 @@ set -euo pipefail
 NAMESPACES=(
   kafka
   hadoop
+  keda
   # elasticsearch
-  # keda
 )
 
 echo "==> 다음 namespace를 삭제합니다 (PVC 포함, 데이터 영구 손실):"
@@ -19,13 +19,17 @@ if [ "$confirm" != "yes" ]; then
   exit 1
 fi
 
-# ── 추가: Strimzi KafkaTopic finalizer 선제 제거 ──
-# Topic Operator가 namespace와 함께 죽으면 finalizer를 못 풀어 교착되므로,
-# 삭제 전에 미리 finalizer를 비운
+# ── Strimzi KafkaTopic finalizer 선제 제거 ──
+# Topic Operator가 namespace와 함께 죽으면 finalizer를 못 풀어 교착되므로 미리 비움
 echo "==> Strimzi KafkaTopic finalizer 정리..."
 for t in $(kubectl get kafkatopic -n kafka -o name 2>/dev/null); do
   kubectl patch "$t" -n kafka -p '{"metadata":{"finalizers":null}}' --type=merge 2>/dev/null || true
 done
+
+# ── KEDA ScaledObject 선제 삭제 ──
+# keda ns(operator)가 죽기 전에 ScaledObject finalizer를 풀어야 교착 안 됨
+echo "==> KEDA ScaledObject 정리..."
+kubectl delete scaledobject --all -n kafka --ignore-not-found 2>/dev/null || true
 
 pids=()
 for ns in "${NAMESPACES[@]}"; do
