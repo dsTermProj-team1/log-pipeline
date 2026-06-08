@@ -38,7 +38,7 @@ spec:
             - name: INPUT
               value: "/logs/msa-logs/year=2026/month=05/day=31/hour=15"
             - name: OUTPUT
-              value: "/results/tput-1node"     # 1노드 측정 시 /results/tput-1node 로 변경
+              value: "/results/tput-2node"     # 1노드 측정 시 /results/tput-1node 로 변경
             - name: REDUCES
               value: "3"
           command: ["/bin/bash", "-c"]

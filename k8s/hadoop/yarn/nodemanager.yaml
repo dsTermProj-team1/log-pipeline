@@ -31,15 +31,17 @@ metadata:
   namespace: hadoop
   labels: { app: yarn, component: nodemanager }
 spec:
-  serviceName: yarn-nodemanager-hl   # 이 headless service로 FQDN 등록
-  replicas: 3                        # 3노드 = NM 3개
-  podManagementPolicy: Parallel      # 3개 동시 기동(순차 대기 불필요)
+  serviceName: yarn-nodemanager-hl
+  replicas: 2                        # 2노드 = NM 2개
+  podManagementPolicy: Parallel      # 2개 동시 기동(순차 대기 불필요)
   selector:
     matchLabels: { app: yarn, component: nodemanager }
   template:
     metadata:
       labels: { app: yarn, component: nodemanager }
     spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -56,17 +58,20 @@ spec:
           env:
             - name: HADOOP_CONF_DIR
               value: /etc/hadoop/conf
-          # 파드 hostname(yarn-nodemanager-N)을 NM hostname으로 명시.
-          # StatefulSet+headless라 이 이름이 FQDN으로 DNS 등록됨 → RM이 resolve 성공.
-          # POD_NAME(metadata.name)이 곧 안정적 파드 이름.
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
           command:
             - /bin/bash
             - -c
             - |
               set -e
-              FQDN="${HOSTNAME}.yarn-nodemanager-hl.hadoop.svc.cluster.local"
-              export YARN_NODEMANAGER_OPTS="-Dyarn.nodemanager.hostname=${FQDN}"
-              echo "[nm] advertising as ${FQDN}"
+              mkdir -p /tmp/conf-rw
+              cp /etc/hadoop/conf/* /tmp/conf-rw/
+              sed -i "s|\${env.NODE_IP}|${NODE_IP}|g" /tmp/conf-rw/yarn-site.xml
+              echo "[nm] nodemanager.hostname injected = ${NODE_IP}"
+              export HADOOP_CONF_DIR=/tmp/conf-rw
               exec yarn nodemanager
           ports:
             - { name: rpc,       containerPort: 8041 }
