@@ -1,0 +1,67 @@
+# 처리량 측정용 일회성 Job (1노드 vs 3노드 비교)
+#
+# 사용법:
+#   # 3노드 측정 (모든 NM 활성)
+#   kubectl apply -f throughput-job.yaml
+#   kubectl logs -n hadoop -f job/throughput-bench
+#   # → 로그 끝의 "real Xm Ys" (time 출력)과 잡 카운터 기록
+#
+#   # 재실행 전 정리
+#   kubectl delete job -n hadoop throughput-bench
+#
+#   # 1노드 측정: 워커 2대 cordon 후 출력 경로 바꿔 재실행
+#   kubectl cordon k3s-worker1 k3s-worker2
+#   #   (OUTPUT 값을 /results/tput-3node 로 바꿔 apply — 출력 경로 충돌 방지)
+#   kubectl uncordon k3s-worker1 k3s-worker2   # 측정 후 원복
+#
+# 핵심:
+#   - LogAggregationDriver(1차 집계) 사용. baseline 아님(CombineInputFormat이라 분산 안 됨).
+#   - reduces=3 → 셔플이 노드 간 트래픽이 됨. 블록 여러 개 → map 분산.
+#   - time 으로 elapsed 측정. 잡 카운터에서 map task 수 / 노드 분산 확인.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: throughput-bench
+  namespace: hadoop
+spec:
+  backoffLimit: 0          # 실패 시 재시도 안 함(측정이라 깔끔하게)
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: bench
+          image: kevinpsj/mapreduce-job:0.2.6
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: HADOOP_CONF_DIR
+              value: /etc/hadoop/conf
+            - name: INPUT
+              value: "/logs/msa-logs/year=2026/month=05/day=31/hour=15"
+            - name: OUTPUT
+              value: "/results/tput-2node"     # 1노드 측정 시 /results/tput-1node 로 변경
+            - name: REDUCES
+              value: "3"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              echo "[bench] input=${INPUT} output=${OUTPUT} reduces=${REDUCES}"
+              hdfs dfs -rm -r -f "${OUTPUT}" || true
+
+              # time 으로 elapsed 측정
+              time hadoop jar /opt/job/mapreduce-job.jar \
+                com.logpipeline.mapreduce.LogAggregationDriver \
+                -D mapreduce.job.reduces="${REDUCES}" \
+                "${INPUT}" "${OUTPUT}"
+
+              echo "[bench] === 결과 미리보기 ==="
+              hdfs dfs -ls "${OUTPUT}"
+              echo "[bench] reducer 출력 파일 수 (reduces=${REDUCES} 면 part-r-0000{0,1,2}):"
+              hdfs dfs -ls "${OUTPUT}" | grep -c part-r || true
+          volumeMounts:
+            - name: hadoop-conf
+              mountPath: /etc/hadoop/conf
+      volumes:
+        - name: hadoop-conf
+          configMap:
+            name: hadoop-conf

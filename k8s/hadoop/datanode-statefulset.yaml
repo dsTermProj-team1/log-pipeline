@@ -5,7 +5,7 @@ metadata:
   namespace: hadoop
 spec:
   serviceName: hdfs-datanode-headless
-  replicas: 1                       # ★ 2로 늘리려면 여기만 수정 + hdfs-site.xml의 dfs.replication도 2로
+  replicas: 2                       # ★ 2로 늘리려면 여기만 수정 + hdfs-site.xml의 dfs.replication도 2로
   selector:
     matchLabels:
       app: hdfs-datanode
@@ -14,13 +14,61 @@ spec:
       labels:
         app: hdfs-datanode
     spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      tolerations:
+        - { key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule }
+        - { key: node-role.kubernetes.io/master,        operator: Exists, effect: NoSchedule }
+      affinity:
+        nodeAffinity:                              # control-plane엔 DataNode 안 띄움
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - { key: node-role.kubernetes.io/control-plane, operator: DoesNotExist }
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: hdfs-datanode
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: datanode
           image: apache/hadoop:3.3.6
-          command: ["hdfs", "datanode"]
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              mkdir -p /tmp/conf-rw
+              cp /etc/hadoop/* /tmp/conf-rw/ 2>/dev/null || true   # 이미지 기본 conf(log4j 등) 먼저
+              cp /conf-src/core-site.xml /tmp/conf-rw/core-site.xml # 우리 site 파일로 덮어쓰기
+              cp /conf-src/hdfs-site.xml /tmp/conf-rw/hdfs-site.xml
+              # data-locality 매칭용 Hostname: YARN NM이 NodeId로 advertise하는 값과 동일해야 함.
+              # NM은 bind IP를 getCanonicalHostName()으로 역DNS해 등록(.120→k3s-worker2,
+              # .100→k3s.test.com). DataNode Hostname도 같은 역DNS 결과로 맞춰 (A)=(B) 성립.
+              DN_HOST=$(getent hosts "${NODE_IP}" | awk '{print $2}'); [ -z "${DN_HOST}" ] && DN_HOST="${NODE_IP}"
+              sed -i "s|\${env.NODE_IP:-0.0.0.0}|${DN_HOST}|g" /tmp/conf-rw/hdfs-site.xml
+              echo "[dn] datanode.hostname (locality) = ${DN_HOST}"
+              # 전송 포트는 0.0.0.0 으로 바인드. NameNode가 NODE_IP가 아닌 flannel(10.42) 소스 IP로
+              # DataNode를 등록하므로(NN이 RPC source IP로 ipAddr override; NN이 flannel pod라 그 경로),
+              # Name(xferAddr)=10.42.x.x:9866 가 된다. node IP 에만 바인드하면 그 주소로 못 붙어
+              # 클라이언트 read/write 가 Connection refused 로 실패. 모든 인터페이스(0.0.0.0)에 바인드해
+              # flannel 주소로도 붙게 한다. (locality 는 Name 이 아니라 위 Hostname 으로 매칭됨)
+              sed -i "s#</configuration>#\
+              <property><name>dfs.datanode.address</name><value>0.0.0.0:9866</value></property>\n\
+              <property><name>dfs.datanode.http.address</name><value>0.0.0.0:9864</value></property>\n\
+              <property><name>dfs.datanode.ipc.address</name><value>0.0.0.0:9867</value></property>\n\
+              </configuration>#" /tmp/conf-rw/hdfs-site.xml
+              echo "[dn] datanode transfer ports bound on 0.0.0.0"
+              export HADOOP_CONF_DIR=/tmp/conf-rw
+              exec hdfs datanode
           env:
             - name: HADOOP_CONF_DIR
-              value: /etc/hadoop
+              value: /tmp/conf-rw
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
           ports:
             - containerPort: 9866
               name: data
@@ -37,10 +85,10 @@ spec:
             - name: data
               mountPath: /hadoop
             - name: config
-              mountPath: /etc/hadoop/core-site.xml
+              mountPath: /conf-src/core-site.xml
               subPath: core-site.xml
             - name: config
-              mountPath: /etc/hadoop/hdfs-site.xml
+              mountPath: /conf-src/hdfs-site.xml
               subPath: hdfs-site.xml
       volumes:
         - name: config

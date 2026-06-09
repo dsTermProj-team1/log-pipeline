@@ -1,9 +1,14 @@
-# NM이 자기 NodeId 를 결정할 때 결국 listener 의 reverse-DNS (`getCanonicalHostName`)
-# 결과를 그대로 등록한다. 그래서 `-Dyarn.nodemanager.hostname` 만으로는 안 잡히고,
-# pod 의 in-pod /etc/hosts 가 어떤 hostname 을 돌려주느냐가 결정한다.
-# hostname + subdomain + headless service 조합을 쓰면 K8s 가 자동으로
-# `<pod_ip> nm0.yarn-nodemanager-hl.hadoop.svc.cluster.local nm0` 를 /etc/hosts 에 박아주고,
-# RM 도 동일 FQDN 을 cluster DNS 로 resolve → AM 컨테이너 launch 가능해진다.
+# NodeManager (멀티 노드 버전 — StatefulSet 방식)
+#
+# 왜 StatefulSet인가:
+#   - DaemonSet 파드는 랜덤 해시 이름(yarn-nodemanager-kqwlm)이라 headless service가
+#     DNS A레코드를 자동 등록하지 않음 → NM이 그 FQDN으로 등록 → RM이 resolve 못 함
+#     → UnknownHostException → AM 토큰 생성 실패 → 잡 ACCEPTED 무한 대기
+#   - StatefulSet 파드는 안정적 이름(yarn-nodemanager-0/1/2)을 받고, headless service가
+#     <pod>.<svc>.<ns>.svc.cluster.local FQDN을 DNS에 등록 → RM이 정상 resolve
+#
+# 노드당 1개 보장: DaemonSet과 달리 자동이 아니므로 replicas:3 + podAntiAffinity로 강제
+# (DataNode에서 쓴 것과 동일 패턴)
 apiVersion: v1
 kind: Service
 metadata:
@@ -12,26 +17,42 @@ metadata:
   labels: { app: yarn, component: nodemanager }
 spec:
   clusterIP: None
+  publishNotReadyAddresses: true     # NM 등록 직후 DNS 즉시 해석되게(기동 레이스 완화)
   selector: { app: yarn, component: nodemanager }
   ports:
+    - { name: rpc,       port: 8041 }
     - { name: webui,     port: 8042 }
     - { name: localizer, port: 8040 }
 ---
 apiVersion: apps/v1
-kind: DaemonSet
+kind: StatefulSet
 metadata:
   name: yarn-nodemanager
   namespace: hadoop
   labels: { app: yarn, component: nodemanager }
 spec:
+  serviceName: yarn-nodemanager-hl
+  replicas: 2                        # 2노드 = NM 2개
+  podManagementPolicy: Parallel      # 2개 동시 기동(순차 대기 불필요)
   selector:
-    matchLabels: {app: yarn, component: nodemanager }
+    matchLabels: { app: yarn, component: nodemanager }
   template:
     metadata:
       labels: { app: yarn, component: nodemanager }
     spec:
-      hostname: nm0                        # 단일 노드 전제. 노드 늘리면 hostname 충돌하니 재설계 필요.
-      subdomain: yarn-nodemanager-hl
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      affinity:
+        nodeAffinity:                              # control-plane엔 NM 안 띄움(straggler 방지)
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - { key: node-role.kubernetes.io/control-plane, operator: DoesNotExist }
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels: { app: yarn, component: nodemanager }
+              topologyKey: kubernetes.io/hostname   # 노드당 NM 1개로 제한
       tolerations:
         - { key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule }
         - { key: node-role.kubernetes.io/master,        operator: Exists, effect: NoSchedule }
@@ -39,12 +60,26 @@ spec:
         - name: nodemanager
           image: apache/hadoop:3.3.6
           imagePullPolicy: IfNotPresent
-          command: [ "yarn" ]
-          args: [ "nodemanager" ]
           env:
             - name: HADOOP_CONF_DIR
               value: /etc/hadoop/conf
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+              mkdir -p /tmp/conf-rw
+              cp /etc/hadoop/conf/* /tmp/conf-rw/
+              sed -i "s|\${env.NODE_IP}|${NODE_IP}|g" /tmp/conf-rw/yarn-site.xml
+              echo "[nm] nodemanager.hostname injected = ${NODE_IP}"
+              export HADOOP_CONF_DIR=/tmp/conf-rw
+              exec yarn nodemanager
           ports:
+            - { name: rpc,       containerPort: 8041 }
             - { name: webui,     containerPort: 8042 }
             - { name: localizer, containerPort: 8040 }
           volumeMounts:
