@@ -1,0 +1,17 @@
+# 1단계 speed-consumer 의 부분합 스냅샷 → 2단계 dos-aggregator 가 소비
+# key = "{window}:{ip}" 라 같은 (window,ip)의 pod별 스냅샷이 같은 파티션으로 모임
+# (순서 일관 + 추후 aggregator 도 (window,ip) 기준으로 스케일 가능)
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: msa-ip-counts
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: msa-kafka
+spec:
+  partitions: 6
+  replicas: 1
+  config:
+    retention.ms: 3600000          # 1시간 — 단기 중간 데이터
+    cleanup.policy: delete
+    segment.bytes: 1073741824
