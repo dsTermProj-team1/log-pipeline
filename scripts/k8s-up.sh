@@ -19,7 +19,8 @@ kubectl apply -f k8s/kafka/kafka-cluster.yaml
 echo "  Kafka 클러스터 Ready 대기..."
 kubectl wait kafka/msa-kafka --for=condition=Ready --timeout=600s -n kafka
 kubectl apply -f k8s/kafka/msa-logs-topic.yaml
-kubectl apply -f k8s/kafka/msa-ip-counts-topic.yaml
+kubectl apply -f k8s/kafka/msa-ip-counts-topic.yaml      # 부분합 중간 토픽(speed→aggregator)
+kubectl apply -f k8s/kafka/msa-blocked-ips-topic.yaml    # DoS 차단 IP 피드백 토픽(aggregator→speed)
 
 echo "==> [2/6] Hadoop (HDFS)"
 kubectl apply -f k8s/hadoop/namespace.yaml

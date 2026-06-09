@@ -1,0 +1,17 @@
+# DoS 차단 IP 피드백 토픽.
+# dos-aggregator 가 판정한 차단 IP를 발행 → 모든 speed-consumer 가 읽어 해당 IP 로그를 skip.
+# 각 speed-consumer 는 고유 group으로 전체를 broadcast 수신(earliest)한다.
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: msa-blocked-ips
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: msa-kafka
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 600000          # 10분 — 단기. 새 pod도 최근 차단을 earliest로 따라잡음
+    cleanup.policy: delete
+    segment.bytes: 1073741824
