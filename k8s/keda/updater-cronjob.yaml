@@ -28,7 +28,7 @@ spec:
                 - name: SO_NS
                   value: "kafka"
                 - name: SO_NAME
-                  value: "spark-speed-consumer-scaler"
+                  value: "speed-consumer-scaler"
                 - name: BASELINE_PATH
                   value: "/results/baseline/latest/part-r-00000"
               command: ["/bin/bash", "/scripts/update.sh"]
