@@ -5,7 +5,7 @@ metadata:
   namespace: kafka
 spec:
   scaleTargetRef:
-    name: spark-speed-consumer # spark consumer deployment 이름 나오면 수정 필요
+    name: speed-consumer # spark consumer deployment 이름 나오면 수정 필요
   pollingInterval: 15
   minReplicaCount: 1
   maxReplicaCount: 6
