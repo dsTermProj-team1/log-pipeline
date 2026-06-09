@@ -19,6 +19,7 @@ kubectl apply -f k8s/kafka/kafka-cluster.yaml
 echo "  Kafka 클러스터 Ready 대기..."
 kubectl wait kafka/msa-kafka --for=condition=Ready --timeout=600s -n kafka
 kubectl apply -f k8s/kafka/msa-logs-topic.yaml
+kubectl apply -f k8s/kafka/msa-ip-counts-topic.yaml
 
 echo "==> [2/6] Hadoop (HDFS)"
 kubectl apply -f k8s/hadoop/namespace.yaml
@@ -58,7 +59,6 @@ echo "==> [6/6] Speed consumer 스케일링 (ScaledObject + updater)"
 kubectl get configmap hadoop-conf -n hadoop -o yaml \
   | sed 's/namespace: hadoop/namespace: kafka/' \
   | kubectl apply -f -
-kubectl apply -f k8s/keda/dummy-consumer-deployment.yaml   # 박지호 것으로 교체 전 더미
 kubectl apply -f k8s/keda/speed-consumer-scaledobject.yaml
 kubectl apply -f k8s/keda/updater-rbac.yaml
 kubectl apply -f k8s/keda/updater-script-configmap.yaml
