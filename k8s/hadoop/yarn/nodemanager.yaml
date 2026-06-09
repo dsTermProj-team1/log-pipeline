@@ -43,6 +43,11 @@ spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       affinity:
+        nodeAffinity:                              # control-plane엔 NM 안 띄움(straggler 방지)
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - { key: node-role.kubernetes.io/control-plane, operator: DoesNotExist }
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:

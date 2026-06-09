@@ -20,6 +20,11 @@ spec:
         - { key: node-role.kubernetes.io/control-plane, operator: Exists, effect: NoSchedule }
         - { key: node-role.kubernetes.io/master,        operator: Exists, effect: NoSchedule }
       affinity:
+        nodeAffinity:                              # control-plane엔 DataNode 안 띄움
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - { key: node-role.kubernetes.io/control-plane, operator: DoesNotExist }
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
