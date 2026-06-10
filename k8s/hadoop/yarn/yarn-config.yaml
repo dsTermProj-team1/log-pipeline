@@ -39,10 +39,13 @@ data:
         <name>yarn.application.classpath</name>
         <value>$HADOOP_CONF_DIR,$HADOOP_COMMON_HOME/share/hadoop/common/*,$HADOOP_COMMON_HOME/share/hadoop/common/lib/*,$HADOOP_HDFS_HOME/share/hadoop/hdfs/*,$HADOOP_HDFS_HOME/share/hadoop/hdfs/lib/*,$HADOOP_YARN_HOME/share/hadoop/yarn/*,$HADOOP_YARN_HOME/share/hadoop/yarn/lib/*,$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/*,$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/lib/*</value>
       </property>
-      <property><name>yarn.nodemanager.hostname</name><value>${env.NODE_IP}</value></property>
-      <property><name>yarn.nodemanager.address</name><value>${env.NODE_IP}:8041</value></property>
-      <property><name>yarn.nodemanager.webapp.address</name><value>${env.NODE_IP}:8042</value></property>
-      <property><name>yarn.nodemanager.localizer.address</name><value>${env.NODE_IP}:8040</value></property>
+      <!-- NM은 k8s 노드명(=DataNode 호스트명)으로 광고해야 data-locality 매칭됨.
+           bind-host=0.0.0.0로 모든 인터페이스에 바인드(어느 경로로 와도 도달 가능). -->
+      <property><name>yarn.nodemanager.bind-host</name><value>0.0.0.0</value></property>
+      <property><name>yarn.nodemanager.hostname</name><value>${env.NODE_NAME}</value></property>
+      <property><name>yarn.nodemanager.address</name><value>${env.NODE_NAME}:8041</value></property>
+      <property><name>yarn.nodemanager.webapp.address</name><value>${env.NODE_NAME}:8042</value></property>
+      <property><name>yarn.nodemanager.localizer.address</name><value>${env.NODE_NAME}:8040</value></property>
     </configuration>
 
   mapred-site.xml: |

@@ -67,6 +67,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           command:
             - /bin/bash
             - -c
@@ -75,7 +79,8 @@ spec:
               mkdir -p /tmp/conf-rw
               cp /etc/hadoop/conf/* /tmp/conf-rw/
               sed -i "s|\${env.NODE_IP}|${NODE_IP}|g" /tmp/conf-rw/yarn-site.xml
-              echo "[nm] nodemanager.hostname injected = ${NODE_IP}"
+              sed -i "s|\${env.NODE_NAME}|${NODE_NAME}|g" /tmp/conf-rw/yarn-site.xml
+              echo "[nm] nodemanager advertise hostname = ${NODE_NAME} (bind 0.0.0.0)"
               export HADOOP_CONF_DIR=/tmp/conf-rw
               exec yarn nodemanager
           ports:
