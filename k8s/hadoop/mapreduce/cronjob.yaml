@@ -20,7 +20,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: submitter
-              image: kevinpsj/mapreduce-job:0.3.0   # ES 적재(es-hadoop) 포함 버전
+              image: kevinpsj/mapreduce-job:0.3.1   # ES 적재(es-hadoop) 포함 버전 (hourly+baseline 통일)
               imagePullPolicy: IfNotPresent
               env:
                 - name: HADOOP_CONF_DIR
