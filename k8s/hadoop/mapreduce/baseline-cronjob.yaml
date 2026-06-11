@@ -21,7 +21,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: submitter
-              image: kevinpsj/mapreduce-job:0.3.1   # baseline + ES(msa-baseline) 적재 포함
+              image: kevinpsj/mapreduce-job:0.3.2   # baseline + ES(msa-baseline) 적재 포함
               imagePullPolicy: IfNotPresent
               env:
                 - name: HADOOP_CONF_DIR

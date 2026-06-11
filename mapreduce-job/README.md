@@ -40,6 +40,6 @@ hadoop jar build/libs/mapreduce-job-0.1.0-SNAPSHOT.jar \
 ## 이미지 빌드 (잡 갱신 시)
 ```bash
 ../gradlew :mapreduce-job:build
-docker build -t kevinpsj/mapreduce-job:0.3.1 .
-docker push kevinpsj/mapreduce-job:0.3.1
+docker build -t kevinpsj/mapreduce-job:0.3.2 .
+docker push kevinpsj/mapreduce-job:0.3.2
 ```
