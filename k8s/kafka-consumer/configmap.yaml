@@ -9,6 +9,8 @@ data:
   KAFKA_TOPIC: "msa-logs"
   HDFS_URI: "hdfs://hdfs-namenode.hadoop.svc.cluster.local:8020"
   HDFS_BASE_PATH: "/logs/msa-logs"
+  # 컨테이너는 appuser(1001)로 돌지만 HDFS /logs 는 hadoop 소유 → hadoop 사용자로 써야 권한 OK
+  HADOOP_USER_NAME: "hadoop"
   ROLLING_MAX_BYTES: "125829120"
   ROLLING_MAX_MESSAGES: "10000"
   ROLLING_CHECK_INTERVAL_MS: "60000"
