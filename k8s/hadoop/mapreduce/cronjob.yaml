@@ -1,4 +1,5 @@
-# 1시간 주기 배치 — 직전 시간 파티션을 집계해 /results 에 JSONL 출력.
+# 1시간 주기 배치 — 직전 시간 파티션을 집계해 /results 에 JSONL 출력하고,
+# 같은 잡에서 ES msa-batch 인덱스에도 동시 적재(es-hadoop EsOutputFormat).
 # hadoop-conf(YARN/HDFS 설정) 마운트로 RM·HDFS 주소를 그대로 물려받음.
 apiVersion: batch/v1
 kind: CronJob
@@ -19,7 +20,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: submitter
-              image: kevinpsj/mapreduce-job:0.1.0
+              image: kevinpsj/mapreduce-job:0.3.2   # ES 적재(es-hadoop) 포함 버전 (hourly+baseline 통일)
               imagePullPolicy: IfNotPresent
               env:
                 - name: HADOOP_CONF_DIR
@@ -55,12 +56,17 @@ spec:
                   # 재실행 대비: 출력 경로가 이미 있으면 제거(MR 은 기존 출력 있으면 실패)
                   hdfs dfs -rm -r -f "${OUT}" || true
 
+                  # agg.window.start: ES 문서의 시계열 필드(window_start)·문서 ID 근거.
+                  # 생략 시 드라이버가 입력 경로의 year=/month=/day=/hour= 에서 유도하지만
+                  # 계약을 명시하기 위해 직접 넘김. ES 주소/인덱스를 바꾸려면
+                  # -D es.nodes=... -D es.resource=... 추가 (기본: monitoring 네임스페이스 ES / msa-batch)
                   hadoop jar /opt/job/mapreduce-job.jar \
                     com.logpipeline.mapreduce.LogAggregationDriver \
                     -D mapreduce.job.reduces="${REDUCES}" \
+                    -D agg.window.start="${Y}-${M}-${D}T${H}:00:00Z" \
                     "${IN}" "${OUT}"
 
-                  echo "[done] aggregation written to ${OUT}"
+                  echo "[done] aggregation written to ${OUT} and ES index msa-batch"
               volumeMounts:
                 - name: hadoop-conf
                   mountPath: /etc/hadoop/conf

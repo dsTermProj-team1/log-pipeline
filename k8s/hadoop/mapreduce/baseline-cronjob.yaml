@@ -1,5 +1,6 @@
 # 1일 주기 배치 — 최근 7일 /results/hourly 를 EWMA 가중집계해
-# 시간대별 필요 Pod 수(구간별)를 /results/baseline/latest 에 출력.
+# 시간대별 필요 Pod 수(구간별)를 /results/baseline/latest 에 출력(KEDA가 소비).
+# 추가로 Kibana 시각화용 ES msa-baseline 인덱스에도 적재(best-effort, 실패해도 잡 성공).
 # 기존 mapreduce-hourly-agg 와 동일 이미지/마운트, 메인 클래스만 baseline.
 apiVersion: batch/v1
 kind: CronJob
@@ -20,7 +21,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: submitter
-              image: kevinpsj/mapreduce-job:0.2.6   # baseline 클래스 포함 버전
+              image: kevinpsj/mapreduce-job:0.3.2   # baseline + ES(msa-baseline) 적재 포함
               imagePullPolicy: IfNotPresent
               env:
                 - name: HADOOP_CONF_DIR
@@ -44,8 +45,8 @@ spec:
                   value: "6"
                 # REF_DATE 미설정 → 드라이버가 '오늘'(컨테이너 UTC 기준) 사용.
                 # 데모 재현 시에만 아래를 풀어 고정:
-                - name: REF_DATE
-                  value: "2026-05-31"
+                # - name: REF_DATE
+                #   value: "2026-05-31"
               command: ["/bin/bash", "-c"]
               args:
                 - |

@@ -49,9 +49,12 @@ spec:
               hdfs dfs -rm -r -f "${OUTPUT}" || true
 
               # time 으로 elapsed 측정
+              # agg.es.enabled=false: 벤치마크에 ES 적재 시간이 섞이면 측정이 왜곡되고,
+              # ES 가 안 떠 있어도 잡이 돌아야 하므로 HDFS 출력만 사용
               time hadoop jar /opt/job/mapreduce-job.jar \
                 com.logpipeline.mapreduce.LogAggregationDriver \
                 -D mapreduce.job.reduces="${REDUCES}" \
+                -D agg.es.enabled=false \
                 "${INPUT}" "${OUTPUT}"
 
               echo "[bench] === 결과 미리보기 ==="

@@ -13,10 +13,10 @@ spec:
     horizontalPodAutoscalerConfig:
      behavior:
        scaleUp:
-         stabilizationWindowSeconds: 0
+         stabilizationWindowSeconds: 15      # 순간 스파이크엔 안 튀도록 짧은 유예
          policies:
            - type: Pods
-             value: 4
+             value: 2                         # 한 번에 최대 +2 (한 스텝 +4 점프 완화)
              periodSeconds: 15
        scaleDown:
          stabilizationWindowSeconds: 120

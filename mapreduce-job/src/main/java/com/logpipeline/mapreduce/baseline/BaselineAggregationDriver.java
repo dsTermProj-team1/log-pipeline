@@ -1,6 +1,7 @@
 package com.logpipeline.mapreduce.baseline;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.*;
@@ -16,7 +17,11 @@ import org.apache.hadoop.util.ToolRunner;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -77,12 +82,67 @@ public class BaselineAggregationDriver extends Configured implements Tool {
         }
         List<BaselineResult> results = computeWindows(conf, ewma);
 
-        // 출력
+        // 출력 (KEDA가 읽는 HDFS 산출물 — 핵심 deliverable)
         writeBaseLine(fs, conf, finalOut, results);
         for (BaselineResult r : results) {
             System.out.printf("[baseline] %s -> %d pod%n", r.getWindow(), r.getReplicas());
         }
+
+        // Kibana 시각화용 ES 적재 (best-effort). 실패해도 잡은 성공 처리 —
+        // baseline의 핵심은 위 HDFS 출력이고 ES는 부가 시각화라, ES 장애가
+        // 오토스케일 파이프라인을 깨면 안 됨.
+        if (conf.getBoolean("baseline.es.enabled", true)) {
+            indexToEs(conf, results);
+        }
         return 0;
+    }
+
+    /**
+     * baseline 결과를 ES msa-baseline 인덱스에 _bulk 로 적재.
+     * 결과가 4건(구간)뿐이라 MR OutputFormat 대신 드라이버에서 직접 REST 호출.
+     * _id = ref_date@window → 같은 날 재실행 시 덮어써서 멱등.
+     */
+    private void indexToEs(Configuration conf, List<BaselineResult> results) {
+        String nodes = conf.get("es.nodes", "elasticsearch.monitoring.svc.cluster.local:9200");
+        String index = conf.get("baseline.es.resource", "msa-baseline");
+        String refDate = conf.get("baseline.ref.date");
+        String computedAt = Instant.now().toString();
+        ObjectMapper json = new ObjectMapper();
+
+        try {
+            StringBuilder bulk = new StringBuilder();
+            for (BaselineResult r : results) {
+                String docId = refDate + "@" + r.getWindow();
+                ObjectNode doc = json.createObjectNode();
+                doc.put("window", r.getWindow());
+                doc.put("replicas", r.getReplicas());
+                doc.put("ref_date", refDate);
+                doc.put("computed_at", computedAt);
+                doc.put("doc_id", docId);
+                bulk.append("{\"index\":{\"_id\":\"").append(docId).append("\"}}\n");
+                bulk.append(json.writeValueAsString(doc)).append("\n");
+            }
+
+            URL url = new URL("http://" + nodes + "/" + index + "/_bulk");
+            HttpURLConnection c = (HttpURLConnection) url.openConnection();
+            c.setRequestMethod("POST");
+            c.setRequestProperty("Content-Type", "application/x-ndjson");
+            c.setDoOutput(true);
+            c.setConnectTimeout(10_000);
+            c.setReadTimeout(15_000);
+            try (OutputStream os = c.getOutputStream()) {
+                os.write(bulk.toString().getBytes(StandardCharsets.UTF_8));
+            }
+            int code = c.getResponseCode();
+            if (code >= 200 && code < 300) {
+                System.out.printf("[baseline] ES 적재 완료: %s/%s (%d docs)%n", nodes, index, results.size());
+            } else {
+                System.err.printf("[baseline] ES 적재 실패(HTTP %d) — HDFS 출력은 정상, 계속 진행%n", code);
+            }
+            c.disconnect();
+        } catch (Exception e) {
+            System.err.println("[baseline] ES 적재 중 오류(무시하고 계속): " + e.getMessage());
+        }
     }
 
     private Map<Integer, Double> readEwma(FileSystem fs, Path dir) throws Exception {
